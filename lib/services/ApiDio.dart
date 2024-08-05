@@ -15,6 +15,8 @@ class ApiService {
   bool isRefreshing = false;
   Completer<void>? completer;
 
+  bool isStartRefresh = false;
+
   final Dio _dio = Dio(BaseOptions(
     baseUrl: 'https://pokeapi.co/api/v2',
     connectTimeout: Duration(seconds: 5), // Connection timeout
@@ -29,26 +31,79 @@ class ApiService {
 
   factory ApiService() => _instance;
 
+  Future<void> fakeRefreshToken() async {
+    isStartRefresh = true;
+    const duration = Duration(seconds: 10);
+    var remaining = duration;
+    var timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      remaining = remaining - const Duration(seconds: 1);
+      print('delaying for ${remaining.inSeconds} sec');
+      if (remaining <= Duration.zero) {
+        timer.cancel();
+      }
+    });
+
+    await Future.delayed(Duration(seconds: 10));
+
+    await Future.delayed(Duration(seconds: 2));
+    print('Refreshing Success!!!');
+
+    isStartRefresh = false;
+    // await Future.delayed(Duration(seconds: 3));
+  }
+
   ApiService._internal() {
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) async {
-        try {
-          // Check if the token is about to expire
-          if (await _isTokenExpiring() && !isRefreshing) {
+        // try {
+
+        //   // Check if the token is about to expire
+        //   if (await _isTokenExpiring() && !isRefreshing) {
+        //     isRefreshing = true;
+        //     completer = Completer<void>();
+        //     await _refreshToken();
+        //     isRefreshing = false;
+        //     completer?.complete();
+
+        //     if (isRefreshing) {
+        //       // Already refreshing access token, waiting for it to complete.
+        //       await completer?.future;
+        //     }
+        //   }
+        // } catch (e) {
+        //   return handler.reject(
+        //       DioException(requestOptions: options)); // Reject the request
+        // }
+
+        // stagging
+        // Check if the token is about to expire
+        if (await _isTokenExpiring() && isStartRefresh == false) {
+          if (!isRefreshing) {
             isRefreshing = true;
             completer = Completer<void>();
-            await _refreshToken();
-            isRefreshing = false;
-            completer?.complete();
+            try {
+              print('Refreshing token...');
+              // await fakeRefreshToken(); // ถ้าอยากให้รอ refres ให้เพิ่ม await
+              fakeRefreshToken();
 
-            if (isRefreshing) {
-              // Already refreshing access token, waiting for it to complete.
-              await completer?.future;
+              completer?.complete();
+            } catch (e) {
+              // handle logout or other error handling
+              completer?.completeError(e);
+              print('Logout !!!!!!');
+
+              return Future.error('Refresh token error: $e');
+            } finally {
+              isRefreshing = false;
             }
+          } else {
+            // Already refreshing access token, waiting for it to complete.
+            print(
+                "Already refreshing access token, waiting for it to complete.");
           }
-        } catch (e) {
-          return handler.reject(
-              DioException(requestOptions: options)); // Reject the request
+
+          // Wait for the refresh token process to complete
+          await completer?.future;
         }
 
         return handler.next(options); // Continue

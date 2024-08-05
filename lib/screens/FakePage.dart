@@ -17,13 +17,20 @@ class _FakePageState extends State<FakePage>
 
   @override
   void initState() {
+    super.initState();
+
     _pagingController.addPageRequestListener((pageKey) {
       _fetchPage(pageKey);
     });
-    super.initState();
   }
 
-  Future<void> _fetchPage(int pageKey) async {
+  Future? _getData;
+
+  initData() {
+    _getData = _fetchPage(1);
+  }
+
+  _fetchPage(int pageKey) async {
     try {
       final newItems = await FakeApi().getPokemon(pageKey, _pageSize);
       final isLastPage = newItems.length < _pageSize;
@@ -33,8 +40,10 @@ class _FakePageState extends State<FakePage>
         final nextPageKey = pageKey + newItems.length;
         _pagingController.appendPage(newItems, nextPageKey);
       }
+      return 'success';
     } catch (error) {
       _pagingController.error = error;
+      return Future.error('$error');
     }
   }
 
@@ -61,19 +70,37 @@ class _FakePageState extends State<FakePage>
         onRefresh: () => Future.sync(
           () => _pagingController.refresh(),
         ),
-        child: SizedBox(
-          height: 500,
-          child: PagedListView(
-            pagingController: _pagingController,
-            builderDelegate: PagedChildBuilderDelegate(
-              itemBuilder: (context, dynamic item, index) => ListTile(
-                leading: CircleAvatar(
-                  radius: 20,
+        child: Column(
+          children: [
+            TextButton(
+              onPressed: () {
+                print('onRefresh');
+                initData();
+              },
+              child: Text("Refresh"),
+            ),
+            TextButton(
+              onPressed: () {
+                print('onRefresh 2');
+                initData();
+              },
+              child: Text("Refresh 2"),
+            ),
+            SizedBox(
+              height: 500,
+              child: PagedListView(
+                pagingController: _pagingController,
+                builderDelegate: PagedChildBuilderDelegate(
+                  itemBuilder: (context, dynamic item, index) => ListTile(
+                    leading: CircleAvatar(
+                      radius: 20,
+                    ),
+                    title: Text('${item['url']}'),
+                  ),
                 ),
-                title: Text('${item['url']}'),
               ),
             ),
-          ),
+          ],
         ),
       );
 
